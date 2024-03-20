@@ -160,3 +160,5 @@ cython_debug/
 #.idea/
 
 *.csv
+fine_tuned_model/config.json
+fine_tuned_model/model.safetensors
