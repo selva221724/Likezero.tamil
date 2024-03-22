@@ -22,7 +22,6 @@ class DataProcessor:
         load_dotenv()
         self.target_field = os.environ.get("TARGET_FIELD")
         self.predict_data_path = os.environ.get("PREDICT_DATA_PATH")
-        self.label_field = os.environ.get("LABEL_FIELD")
         self.predict_data = None
 
     def load_data(self):

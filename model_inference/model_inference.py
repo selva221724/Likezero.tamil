@@ -1,10 +1,9 @@
-import pandas as pd
-import numpy as np
-from sklearn.model_selection import train_test_split
-from transformers import DistilBertTokenizer, DistilBertForSequenceClassification, Trainer, TrainingArguments
-from sklearn.metrics import accuracy_score, precision_recall_fscore_support
+import os
+from transformers import DistilBertTokenizer, DistilBertForSequenceClassification
+from sklearn.metrics import accuracy_score
 from torch.utils.data import Dataset, DataLoader
 import torch
+import gdown
 
 from dotenv import load_dotenv
 
@@ -31,9 +30,8 @@ class NewsDataset(Dataset):
         max_length (int): Maximum length of the input sequence.
     """
     
-    def __init__(self, texts, labels, tokenizer, max_length):
+    def __init__(self, texts, tokenizer, max_length):
         self.texts = texts
-        self.labels = labels
         self.tokenizer = tokenizer
         self.max_length = max_length
 
@@ -42,7 +40,6 @@ class NewsDataset(Dataset):
 
     def __getitem__(self, idx):
         text = str(self.texts.iloc[idx])
-        label = self.labels.iloc[idx]
 
         encoding = self.tokenizer.encode_plus(
             text,
@@ -57,79 +54,92 @@ class NewsDataset(Dataset):
 
         return {
             'input_ids': encoding['input_ids'].flatten(),
-            'attention_mask': encoding['attention_mask'].flatten(),
-            'labels': torch.tensor(label, dtype=torch.long)
+            'attention_mask': encoding['attention_mask'].flatten()
         }
 
-class WeightedTrainer(Trainer):
-    """Custom trainer class to handle class weights in the loss function.
+class InferenceData():
+    """Class to perform inference on new data using a fine-tuned DistilBERT model.
     
-    Args:
-        class_weight (torch.Tensor): A tensor containing class weights.
-        """
+    Attributes:
+        model (transformers.modeling_distilbert.DistilBertForSequenceClassification): A fine-tuned DistilBERT model.
+        tokenizer (transformers.tokenization_utils_base.PreTrainedTokenizerBase): A tokenizer object.
+        data (pd.DataFrame): A pandas DataFrame containing the inference data.
+        texts (list): A list of news texts.
+        batch_size (int): The batch size for inference.
+        model_name (str): The name of the DistilBERT model.
+        fine_tuned_model_path (str): The path to the fine-tuned model."""
+    
+    def __init__(self):
+        self.model = None
+        self.tokenizer = None
+        self.data = None
+        self.texts = None
+        self.batch_size = int(os.environ.get("BATCH_SIZE"))
+        self.model_name = os.environ.get("MODEL_NAME")
+        self.fine_tuned_model_path = os.environ.get("FINE_TUNED_MODEL_PATH")
         
-    def __init__(self, class_weight, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.class_weight = class_weight
+        
+    def load_model(self):
+        """Load the fine-tuned DistilBERT model and tokenizer."""
+        self.tokenizer = DistilBertTokenizer.from_pretrained(self.model_name)
+        
+        # Check if the model is available inside the fine_tuned_model_path
+        if not os.path.exists(self.fine_tuned_model_path):
+            os.makedirs(self.fine_tuned_model_path)  # Create directory if it doesn't exist
+        
+        # check if the model is available inside the fine_tuned_model_path
+        if not os.path.exists(self.fine_tuned_model_path + "/model.safetensors") and \
+        not os.path.exists(self.fine_tuned_model_path + "/config.json"):
+            print("Downloading the fine-tuned model...")
+            config_file_id = "122F6JBh8o_N7K4fGemdNcjjt2c7XoxMD"
+            model_file_id = "11wYbz4wkN7ox8vzy5POClIiHuOBsouX_"
+            download_file_from_google_drive(model_file_id,os.path.join(os.getcwd(), self.fine_tuned_model_path +"/model.safetensors"))
+            download_file_from_google_drive(config_file_id,os.path.join(os.getcwd(), self.fine_tuned_model_path +"/config.json"))
+        
+        self.model = DistilBertForSequenceClassification.from_pretrained(self.fine_tuned_model_path)
+        
+    def predict_on_new_data(self,texts):
+        """Perform inference on new data."""
+        self.texts = texts
+        # Remove None samples
+        inference_dataset = [sample for sample in self.texts if sample is not None]
+        # Initialize DataLoader
+        inference_dataloader = DataLoader(inference_dataset, batch_size=self.batch_size)
+        predictions = []
+        for batch in inference_dataloader:
+            with torch.no_grad():
+                input_ids = batch['input_ids'].to(self.model.device)
+                attention_mask = batch['attention_mask'].to(self.model.device)
+                outputs = self.model(input_ids, attention_mask=attention_mask)
+                batch_predictions = torch.argmax(outputs.logits, axis=1)
+                predictions.extend(batch_predictions.cpu().numpy())
+        return predictions
 
-    def compute_loss(self, model, inputs, return_outputs=False):
-        labels = inputs.pop("labels")
-        outputs = model(**inputs)
-        logits = outputs.logits
-        loss_fn = nn.CrossEntropyLoss(weight=self.class_weight.to(outputs.logits.device, dtype=torch.float32))
-        loss = loss_fn(logits, labels)
-        return (loss, outputs) if return_outputs else loss
+def download_file_from_google_drive(file_id, save_path):
+    """Download a file from Google Drive."""
+    url = f"https://drive.google.com/uc?id={file_id}"
+    gdown.download(url, save_path, quiet=False)
 
-def train_model(model, train_dataset, test_dataset, class_weights, training_args):
-    trainer = WeightedTrainer(
-        class_weight=class_weights,
-        model=model,
-        args=training_args,
-        train_dataset=train_dataset,
-        eval_dataset=test_dataset,
-        compute_metrics=None
-    )
-    trainer.train()
-
-    return trainer
-
-def evaluate_model(trained_model, test_dataset):
-    predictions = trained_model.predict(test_dataset)
-    pred_labels = np.argmax(predictions.predictions, axis=1)
-    true_labels = test_dataset.labels.to_numpy()
-
-    accuracy = accuracy_score(true_labels, pred_labels)
-    precision, recall, f1_score, _ = precision_recall_fscore_support(true_labels, pred_labels, average='binary')
-
-    return accuracy, precision, recall, f1_score
 
 def main():
-    
-    target_field = os.environ.get("TARGET_FIELD")
-    label_field = os.environ.get("LABEL_FIELD")
-    output_dir = os.environ.get("OUTPUT_DIR")
-    model_name = os.environ.get("MODEL_NAME")
-    per_device_train_batch_size = int(os.environ.get("BATCH_SIZE"))
-    per_device_eval_batch_size = int(os.environ.get("BATCH_SIZE"))
-    num_train_epochs = int(os.environ.get("EPOCHS"))
-    evaluation_strategy = os.environ.get("EVALUATION_STRATEGY")
-    save_strategy = os.environ.get("SAVE_STRATEGY")
-    logging_dir = os.environ.get("LOGGING_DIR")
-    logging_steps = int(os.environ.get("LOGGING_STEPS"))
-    save_steps = int(os.environ.get("SAVE_STEPS"))
-    warmup_steps = int(os.environ.get("WARMUP_STEPS"))
-    weight_decay = float(os.environ.get("WEIGHT_DECAY"))
+    # Load environment variables
+    results_field = os.environ.get("RESULTS_FIELD")
     max_length = int(os.environ.get("MAX_LENGTH"))
-    train_size = float(os.environ.get("TRAIN_SIZE"))
-    random_state = int(os.environ.get("RANDOM_STATE"))
-    save_model = os.environ.get("SAVE_MODEL")
-    save_model_path = os.environ.get("SAVE_MODEL_PATH")
+    target_field = os.environ.get("TARGET_FIELD")
+    results_path = os.environ.get("RESULTS_PATH")
+    true_label = int(os.environ.get("TRUE_LABEL"))
+    fake_label = int(os.environ.get("FAKE_LABEL"))
+    ground_truth_available = os.environ.get("GROUND_TRUTH")
+    
     
     # Convert save_model to boolean
-    if save_model.lower() == 'true':
-        save_model = True
+    if ground_truth_available.lower() == 'true':
+        ground_truth_available = True
+        ground_truth_field = os.environ.get("GROUND_TRUTH_FIELD")
+        print(f"Ground truth field available: {ground_truth_field}")
     else:
-        save_model = False
+        ground_truth_available = False
+        print("Ground truth field not available.")
     
     
     # Load and preprocess data
@@ -142,57 +152,31 @@ def main():
     print("=============== Preprocessed data ====================")
     print(preprocessed_data.head())
     
-    # Split data into training and testing sets
-    train_texts, test_texts, train_labels, test_labels = train_test_split(
-        preprocessed_data[target_field], preprocessed_data[label_field], test_size=1-train_size, random_state=random_state)
+    # Load the model and tokenizer
+    inference = InferenceData()
+    inference.load_model()
     
-    print(f"Training set size: {len(train_texts)}")
-    print(f"Testing set size: {len(test_texts)}")
-
-    # Initialize tokenizer and model
-    tokenizer = DistilBertTokenizer.from_pretrained(model_name)
-    model = DistilBertForSequenceClassification.from_pretrained(model_name, num_labels=2)
-
-    # Calculate class weights for imbalanced dataset
-    class_counts = preprocessed_data[label_field].value_counts()
-    class_weights = torch.tensor([class_counts[0] / class_counts[1], 1.0])
-
-    # Create datasets
-    train_dataset = NewsDataset(train_texts, train_labels, tokenizer, max_length)
-    test_dataset = NewsDataset(test_texts, test_labels, tokenizer, max_length)
-
-    # Training arguments
-    training_args = TrainingArguments(
-        output_dir=output_dir,
-        per_device_train_batch_size=per_device_train_batch_size,
-        per_device_eval_batch_size=per_device_eval_batch_size,
-        num_train_epochs=num_train_epochs,
-        evaluation_strategy=evaluation_strategy,
-        save_strategy=save_strategy,
-        logging_dir=logging_dir,
-        logging_steps=logging_steps,
-        save_steps=save_steps,
-        warmup_steps=warmup_steps,
-        weight_decay=weight_decay,
-        logging_first_step=True,
-        load_best_model_at_end=True,
-        greater_is_better=True
-    )
-
-    # Train model
-    trained_model = train_model(model, train_dataset, test_dataset, class_weights, training_args)
+    # Create a dataset for inference
+    predict_dataset = NewsDataset(preprocessed_data[target_field], inference.tokenizer, max_length=max_length)
     
-    # Save model
-    if save_model:
-        trained_model.model.save_pretrained(save_model_path)
+    print(f"Prediction dataset size: {len(predict_dataset)}")
 
-    # Evaluate model
-    accuracy, precision, recall, f1_score = evaluate_model(trained_model, test_dataset)
-
-    print(f"Accuracy: {accuracy}")
-    print(f"Precision: {precision}")
-    print(f"Recall: {recall}")
-    print(f"F1 Score: {f1_score}")
+    # Perform inference
+    inference_results = inference.predict_on_new_data(predict_dataset)
+    print("Inference complete.")
+    
+    # Map the inference results to the corresponding labels
+    preprocessed_data[results_field] = inference_results
+    preprocessed_data[results_field] = preprocessed_data[results_field].map({true_label: 'Real', fake_label: 'Fake'}) 
+    
+    # Calculate accuracy
+    if ground_truth_available:
+        accuracy = accuracy_score(preprocessed_data[ground_truth_field], preprocessed_data[results_field])
+        print(f"Accuracy on Inference Data: {accuracy}")
+    
+    # Save the results    
+    preprocessed_data.to_csv(results_path, index=False)
+    print(f"Results saved to: {results_path}")
 
 if __name__ == "__main__":
     main()
