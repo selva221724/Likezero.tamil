@@ -30,8 +30,8 @@ class DataProcessor:
 
     def load_data(self):
         """Load fake and true news data and preprocess it for training."""
-        fake_data = pd.read_csv(self.fake_data_path)[:100]
-        true_data = pd.read_csv(self.true_data_path)[:100]
+        fake_data = pd.read_csv(self.fake_data_path)
+        true_data = pd.read_csv(self.true_data_path)
 
         fake_data[self.label_field] = self.fake_label  # Fake news label
         true_data[self.label_field] = self.true_label  # Real news label
