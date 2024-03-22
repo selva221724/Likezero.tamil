@@ -178,7 +178,7 @@ This module contains utility functions used for data preprocessing. Key function
 5. **Containerized Deployment with FAST API**: Dockerize the trained model and deploy it as a containerized service using FAST API, enabling seamless integration, scalability, and easy consumption through RESTful API endpoints.
 
 ## 🤔 7. How much time i took? 
-I began this assignment amidst personal challenges, leading me to work in various time blocks. On average and overall, I dedicated approximately `10 to 12 hours`, including multiple training iterations, to complete the task. Oops!! excluding this crazy 😬 readme file!!
+I began this assignment amidst personal challenges, leading me to work in various time blocks. Overall, I dedicated approximately `10 to 12 hours`, including multiple training iterations, to complete the task. Oops!! excluding this crazy 😬 readme file!!
 
 ## 👨🏻‍💻 Author Information
 
