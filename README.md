@@ -1,6 +1,6 @@
 # 💻 Likezero NLP Task: Fake and Real News Detection
 
-## 1. Purpose
+## 👩🏽‍🚀 1. Purpose
 The task is to build a machine learning model capable of classifying news articles as either fake or real. This involves testing different methods of feeding text data into the model, performing basic feature engineering, data pre-processing, and text manipulation.
 
 ## 🦿 2. Implementation Details
@@ -41,7 +41,7 @@ To evaluate the model's performance, a test dataset was created with a mix of re
  An inference code was developed to read the test dataset, make predictions, and compare them with the ground truth labels. The accuracy of the model on this test dataset was above 80%, acknowledging potential confusions especially with artificially generated data.
 
 
-## 3. Dependencies/Prerequisites
+## 🤌🏼 3. Dependencies/Prerequisites
 
 - `Python 3.11.0`
 - It is recommended to have a virtual environment (venv) set up for this project.
@@ -80,7 +80,7 @@ pip install accelerate -U
 cd data
 python download_data.py
 ```
-This will download `True.csv`, `Fake.csv`, and `Test.csv` in the `data` folder (created using GPT).
+This will download `True.csv`, `Fake.csv`, and `Test.csv` in the `data` folder.
 
 ![Alt Text](readme_artifacts/download.png)
 
@@ -97,13 +97,13 @@ python train.py
 ![Alt Text](readme_artifacts/train.png)
 
 ### Model Inference
-6. After training, proceed to perform model inference on the test dataset `Test.csv`. You can skip the training step if you wish to use the pre-trained model. To perform inference, execute the following command from the root folder of the repository:
+6. After training, proceed to perform model inference on the test dataset `Test.csv`. You can skip the training step if you wish to use the pre-trained model that I trained. To perform inference, execute the following command from the root folder of the repository:
 ```bash
 cd model_inference
 python model_inference.py
 
 ```
-7. This will download my trained weights from my Google Drive into a fine_tuned_model directory within the repository and start the inference process on `Test.csv`. If you have a different CSV, you can update the path in the .env file within the same folder. The inference process will predict labels and save them as a CSV file. Additionally, it will validate against ground truth labels in the test CSV and print the accuracy. 
+7. This will download my trained weights from my Google Drive into a `fine_tuned_model` directory within the repository and start the inference process on `Test.csv`. If you have a different CSV, you can update the path in the .env file within the same folder. The inference process will predict labels and save them as a CSV file. Additionally, it will validate against ground truth labels in the test CSV and print the accuracy. 
 
 
 ## 5. 🤖 Code Summary
@@ -113,7 +113,7 @@ python model_inference.py
 
 This script is responsible for training a DistilBERT model for news text classification. The code demonstrates how to train a DistilBERT model for news text classification, handle class imbalances using class weights, and evaluate model performance using standard evaluation metrics. It consists of the following components:
 
-1. **Data Loading and Preprocessing**: The script loads the dataset, preprocesses it, and splits it into training and testing sets.
+1. **Data Loading and Preprocessing**: The script loads the dataset, preprocesses it, and splits it into training and testing sets. Also, handled data imbalance at the label weights level.
 
 2. **Custom Dataset Class**: It defines a custom dataset class (`NewsDataset`) to prepare the data for training. This class tokenizes and encodes news text using a `DistilBERT` tokenizer.
 
@@ -177,8 +177,8 @@ This module contains utility functions used for data preprocessing. Key function
 
 5. **Containerized Deployment with FAST API**: Dockerize the trained model and deploy it as a containerized service using FAST API, enabling seamless integration, scalability, and easy consumption through RESTful API endpoints.
 
-## 7. How much time i took? 
-I began this assignment amidst personal challenges, leading me to work in various time blocks. On average and overall, I dedicated approximately `10 to 12 hours`, spanning multiple training iterations, to complete the task. Oops!! excluding this crazy readme 
+## 🤔 7. How much time i took? 
+I began this assignment amidst personal challenges, leading me to work in various time blocks. On average and overall, I dedicated approximately `10 to 12 hours`, including multiple training iterations, to complete the task. Oops!! excluding this crazy 😬 readme file!!
 
 ## 👨🏻‍💻 Author Information
 
