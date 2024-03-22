@@ -7,7 +7,6 @@ seaborn
 wordcloud
 ipykernel
 accelerate
-colab_ssh
 python-dotenv
 nltk
 gdown
